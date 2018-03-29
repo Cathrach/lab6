@@ -241,7 +241,7 @@ module NativeLazyStreams =
       let h, t = head s, tail s in
       if pred h then lazy (Cons (h, (sfilter pred t)))
       else
-        sfilter pred t
+        lazy (Lazy.force (sfilter pred t))
   end
 
 (* Now we can redo the Fibonacci example. *)
