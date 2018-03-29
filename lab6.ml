@@ -65,23 +65,24 @@ succeeding exercises, you shouldn't feel beholden to how the
 definition is introduced in the skeleton code below. (We'll stop
 mentioning this now, and forevermore.) *)
 
-let twos = fun () -> failwith "twos not implemented" ;;
+let twos = smap (( + ) 1) ones
 
 (* An infinite stream of threes, built from the ones and twos. *)
 
-let threes = fun () -> failwith "threes not implemented" ;;
+let threes = smap2 ( + ) ones twos
   
 (* An infinite stream of natural numbers (0, 1, 2, 3, ...). *)
 
-let nats = fun () -> failwith "nats not implemented" ;;
+let rec nats =
+  fun () -> Cons (0, smap (( + ) 1) nats)
 
 (* Now some new examples. For these, don't build them directly, but
 make use of the stream mapping functions. *)
 
 (* Infinite streams of even and odd numbers. *)
 
-let evens () = failwith "evens not implemented" ;;
-let odds () = failwith "odds not implemented" ;;
+let evens = smap (( * ) 2) nats
+let odds = smap (( + ) 1) evens
 
 (* In addition to mapping over streams, we should be able to use all
 the other higher-order list functions you've grown to know and love,
@@ -98,12 +99,15 @@ predicate.  Example:
    - : int list = [0; 2; 4; 6; 8; 10; 12; 14; 16; 18]
  *)
 
-let sfilter _ = failwith "sfilter not implemented" ;;
+let rec sfilter (f : 'a -> bool) (s : 'a stream) =
+  fun () ->
+    let h, t = head s, tail s in
+    if f h then Cons (h, (sfilter f t)) else (sfilter f t) ()
   
 (* Now redefine evens and odds using sfilter *)
 
-let evens2 _ = failwith "evens with sfilter not implemented" ;;
-let odds2 _ = failwith "odds with sfilter not implemented" ;;
+let evens2 = sfilter (fun x -> x mod 2 = 0) nats
+let odds2 = sfilter (fun x -> x mod 2 <> 0) nats
 
 (*====================================================================
 Part 2: Eratosthenes Sieve
@@ -162,7 +166,11 @@ In defining the sieve function, the following functon may be useful.
 let not_div_by (n : int) (m : int) : bool = 
     not (m mod n = 0) ;;
 
-let rec sieve s = failwith "sieve not implemented" ;;
+let rec sieve (s : 'a stream) : 'a stream =
+  fun () ->
+    let h, t = head s, tail s in
+    let t = sfilter (not_div_by h) t in
+    Cons (h, sieve t)
 
 (*====================================================================
 Part 3: Using OCaml's Lazy module
@@ -221,17 +229,19 @@ module NativeLazyStreams =
       else head s :: first (n - 1) (tail s) ;;
 
     let rec smap (f : 'a -> 'b) (s : 'a stream) : 'b stream =
-      failwith "smap native not implemented" ;;
+      lazy (Cons (f (head s), smap f (tail s)))
 
     let rec smap2 (f : 'a -> 'b -> 'c)
                   (s1 : 'a stream)
                   (s2 : 'b stream)
                   : 'c stream = 
-      failwith "smap2 native not implemented" ;;
+      lazy (Cons(f (head s1) (head s2), smap2 f (tail s1) (tail s2)))
 
     let rec sfilter (pred : 'a -> bool) (s : 'a stream) : 'a stream =
-      failwith "sfilter native not implemented" ;;
-
+      let h, t = head s, tail s in
+      if pred h then lazy (Cons (h, (sfilter pred t)))
+      else
+        sfilter pred t
   end
 
 (* Now we can redo the Fibonacci example. *)
@@ -263,11 +273,14 @@ time (msecs): 0.006914
 (* Redo the Eratosthenes sieve using the NativeLazyStreams by
    completing the functions below. *)
 
-let rec nats2 = lazy (failwith "nats native not implemented") ;;
+let rec nats2 = lazy (Cons (0, smap (( + ) 1) nats2))
  
-let rec sieve2 s = failwith "sieve native not implemented" ;;
+let rec sieve2 s =
+  let h, t = head s, tail s in
+  let t = sfilter (not_div_by h) t in
+  lazy (Cons (h, sieve2 t))
 
-let primes2 = lazy (failwith "primes2 native not implemented") ;;
+let primes2 = sieve2 (tail (tail nats2))
 
 (* How much further can you get computing primes now that the
    recomputation problem is solved?  Implement a function to find the
@@ -275,5 +288,6 @@ let primes2 = lazy (failwith "primes2 native not implemented") ;;
    prime. *)
 
 let rec nth (s : 'a stream) (n : int) : 'a =
-  failwith "nth native not implemented" ;;
+  if n < 1 then head s else
+    nth (tail s) (n - 1)
 
